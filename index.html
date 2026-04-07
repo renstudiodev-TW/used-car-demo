@@ -454,5 +454,10 @@ document.getElementById('addCarModal').addEventListener('click', e => { if (e.ta
 // 初始渲染
 renderCars();
 </script>
+<script>
+(function(){if(sessionStorage.getItem('_t'))return;sessionStorage.setItem('_t','1');
+fetch('https://renstudio-tracker.ren-studio-dev.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({project:'中古車管理系統',page:'Demo 功能展示'})}).catch(function(){});})();
+</script>
 </body>
 </html>
