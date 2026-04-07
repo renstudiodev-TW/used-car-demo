@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二手車展示平台 Demo — 仁格數位科技</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #f8fafc; margin: 0; }
+    .car-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: all 0.25s; cursor: pointer; }
+    .car-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+    .car-img { width: 100%; height: 200px; object-fit: cover; background: #e2e8f0; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .tag-hot { background: #fef2f2; color: #dc2626; }
+    .tag-new { background: #f0fdf4; color: #16a34a; }
+    .tag-price { background: #eff6ff; color: #2563eb; }
+    .filter-btn { padding: 8px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-size: 13px; color: #475569; transition: all 0.2s; }
+    .filter-btn:hover, .filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 16px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .spec-row { display: flex; border-bottom: 1px solid #f1f5f9; }
+    .spec-label { width: 100px; padding: 10px 16px; background: #f8fafc; font-size: 13px; color: #64748b; font-weight: 500; flex-shrink: 0; }
+    .spec-value { padding: 10px 16px; font-size: 14px; font-weight: 500; }
+    input[type="range"] { -webkit-appearance: none; height: 6px; background: #e2e8f0; border-radius: 3px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #1e293b; border-radius: 50%; cursor: pointer; }
+    .hero-search { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); }
+    .admin-tab { padding: 10px 20px; border: none; background: transparent; cursor: pointer; font-size: 14px; color: #64748b; border-bottom: 2px solid transparent; }
+    .admin-tab.active { color: #1e293b; border-bottom-color: #1e293b; font-weight: 600; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<!-- 頂部標籤 -->
+<div style="background:#f0f9ff; border-bottom:1px solid #bae6fd; padding:8px 16px; font-size:13px; color:#0369a1;">
+  🧪 功能展示 Demo — 由 <a href="https://renstudio.tw" target="_blank" style="color:#0369a1; font-weight:600;">仁格數位科技</a> 製作
+</div>
+
+<!-- 前後台切換 -->
+<div style="background:#1e293b; padding:0 24px; display:flex; align-items:center; justify-content:space-between;">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <h1 style="color:white; font-size:18px; font-weight:700; margin:0; padding:14px 0;">🚗 優質二手車</h1>
+    <div style="display:flex; gap:4px;">
+      <button class="admin-tab active" onclick="switchView('front')" style="color:white; opacity:0.9;">前台展示</button>
+      <button class="admin-tab" onclick="switchView('admin')" style="color:white; opacity:0.6;">後台管理</button>
+    </div>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span style="color:#94a3b8; font-size:13px;">共 <span id="carCount">12</span> 輛在售</span>
+  </div>
+</div>
+
+<!-- ==================== 前台展示 ==================== -->
+<div id="frontView">
+
+  <!-- Hero 搜尋區 -->
+  <div class="hero-search" style="padding:40px 24px; text-align:center;">
+    <h2 style="color:white; font-size:28px; font-weight:700; margin:0 0 8px;">找到您的理想座駕</h2>
+    <p style="color:#94a3b8; margin:0 0 24px; font-size:15px;">嚴選認證二手車，每輛都經過完整檢查</p>
+    <div style="max-width:700px; margin:0 auto; display:flex; gap:8px;">
+      <input type="text" id="searchInput" placeholder="搜尋品牌、車型..."
+             style="flex:1; padding:14px 20px; border-radius:10px; border:none; font-size:15px; outline:none;"
+             oninput="filterCars()">
+      <button onclick="filterCars()" style="padding:14px 28px; background:#3b82f6; color:white; border:none; border-radius:10px; font-weight:600; cursor:pointer; font-size:15px;">搜尋</button>
+    </div>
+  </div>
+
+  <!-- 篩選列 -->
+  <div style="max-width:1200px; margin:0 auto; padding:20px 24px 0;">
+    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+      <span style="font-size:13px; color:#64748b; margin-right:4px;">品牌：</span>
+      <button class="filter-btn active" onclick="filterBrand('all', this)">全部</button>
+      <button class="filter-btn" onclick="filterBrand('Toyota', this)">Toyota</button>
+      <button class="filter-btn" onclick="filterBrand('Honda', this)">Honda</button>
+      <button class="filter-btn" onclick="filterBrand('BMW', this)">BMW</button>
+      <button class="filter-btn" onclick="filterBrand('Mercedes', this)">Mercedes</button>
+      <button class="filter-btn" onclick="filterBrand('Mazda', this)">Mazda</button>
+      <button class="filter-btn" onclick="filterBrand('Tesla', this)">Tesla</button>
+
+      <span style="font-size:13px; color:#64748b; margin-left:16px; margin-right:4px;">價格：</span>
+      <input type="range" id="priceRange" min="20" max="250" value="250" oninput="filterCars()" style="width:150px;">
+      <span id="priceLabel" style="font-size:13px; color:#1e293b; font-weight:600;">250 萬以下</span>
+    </div>
+  </div>
+
+  <!-- 車輛列表 -->
+  <div style="max-width:1200px; margin:0 auto; padding:20px 24px 40px;">
+    <div id="carGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:20px;"></div>
+    <div id="noResult" style="display:none; text-align:center; padding:60px; color:#94a3b8;">
+      <div style="font-size:48px; margin-bottom:12px;">🔍</div>
+      <div style="font-size:16px;">沒有找到符合條件的車輛</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 後台管理 ==================== -->
+<div id="adminView" style="display:none;">
+  <div style="max-width:1200px; margin:0 auto; padding:24px;">
+
+    <!-- 後台統計 -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
+      <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size:13px; color:#64748b;">在售車輛</div>
+        <div style="font-size:28px; font-weight:700; color:#1e293b;" id="statTotal">12</div>
+      </div>
+      <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size:13px; color:#64748b;">本月新增</div>
+        <div style="font-size:28px; font-weight:700; color:#22c55e;">+3</div>
+      </div>
+      <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size:13px; color:#64748b;">本月售出</div>
+        <div style="font-size:28px; font-weight:700; color:#f59e0b;">5</div>
+      </div>
+      <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size:13px; color:#64748b;">頁面瀏覽</div>
+        <div style="font-size:28px; font-weight:700; color:#3b82f6;">2,847</div>
+      </div>
+    </div>
+
+    <!-- 新增車輛 -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="font-size:16px; font-weight:600;">車輛管理</h3>
+      <button onclick="openAddCar()" style="padding:10px 20px; background:#1e293b; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px;">+ 新增車輛</button>
+    </div>
+
+    <!-- 車輛表格 -->
+    <div style="background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">車輛</th>
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">品牌/車型</th>
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">年份</th>
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">售價</th>
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">狀態</th>
+            <th style="text-align:left; padding:14px 16px; font-size:13px; color:#64748b; font-weight:600;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="adminTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 車輛詳情 Modal -->
+<div class="modal-overlay" id="carModal">
+  <div class="modal fade-in" id="carModalContent"></div>
+</div>
+
+<!-- 新增車輛 Modal -->
+<div class="modal-overlay" id="addCarModal">
+  <div class="modal fade-in" style="max-width:600px; padding:32px;">
+    <h3 style="font-size:18px; font-weight:700; margin:0 0 20px;">新增車輛</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">品牌</label>
+        <select id="addBrand" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+          <option>Toyota</option><option>Honda</option><option>BMW</option><option>Mercedes</option><option>Mazda</option><option>Tesla</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">車型</label>
+        <input id="addModel" type="text" placeholder="例如：Camry" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">年份</label>
+        <input id="addYear" type="number" value="2023" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">售價（萬）</label>
+        <input id="addPrice" type="number" placeholder="例如：68" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">里程數（公里）</label>
+        <input id="addMileage" type="number" placeholder="例如：35000" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">顏色</label>
+        <input id="addColor" type="text" placeholder="例如：白色" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+      </div>
+      <div style="grid-column:span 2;">
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">車輛描述</label>
+        <textarea id="addDesc" rows="3" placeholder="描述車況、配備等..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+      </div>
+      <div style="grid-column:span 2;">
+        <label style="font-size:13px; color:#64748b; display:block; margin-bottom:4px;">上傳照片</label>
+        <div style="border:2px dashed #e2e8f0; border-radius:8px; padding:24px; text-align:center; color:#94a3b8; cursor:pointer;" onclick="alert('📸 Demo 模式：實際版本可上傳多張車輛照片')">
+          📸 點擊上傳照片（支援多張）
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:20px; justify-content:flex-end;">
+      <button onclick="closeAddCar()" style="padding:10px 20px; background:white; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:14px;">取消</button>
+      <button onclick="addCar()" style="padding:10px 20px; background:#1e293b; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px;">確認上架</button>
+    </div>
+  </div>
+</div>
+
+<!-- 底部 CTA -->
+<div style="text-align:center; padding:32px; background:#f8fafc; border-top:1px solid #e2e8f0;">
+  <p style="color:#64748b; margin:0 0 12px;">想要專屬的二手車展示網站？</p>
+  <a href="https://renstudio.tw" target="_blank"
+     style="display:inline-block; padding:12px 32px; background:#1e293b; color:white; text-decoration:none; border-radius:8px; font-weight:600;">
+    聯絡仁格數位科技 →
+  </a>
+</div>
+
+<script>
+// ===== 車輛資料 =====
+const cars = [
+  { id:1, brand:'Toyota', model:'Camry 2.5 Hybrid', year:2022, price:89, mileage:25000, color:'白色', fuel:'油電混合', trans:'CVT 無段變速', cc:'2487cc', hp:'218hp', tags:['hot'], status:'在售',
+    desc:'原廠保固中，一手車，全車原漆，定期原廠保養，配備 Toyota Safety Sense 主動安全系統。',
+    img:'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=250&fit=crop' },
+  { id:2, brand:'BMW', model:'320i M Sport', year:2021, price:138, mileage:42000, color:'黑色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', tags:['hot'], status:'在售',
+    desc:'M Sport 套件、全景天窗、HUD 抬頭顯示、harman/kardon 音響、無線 CarPlay。',
+    img:'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=250&fit=crop' },
+  { id:3, brand:'Honda', model:'CR-V 1.5 VTi-S', year:2023, price:95, mileage:12000, color:'深藍色', fuel:'汽油', trans:'CVT 無段變速', cc:'1498cc', hp:'193hp', tags:['new'], status:'在售',
+    desc:'準新車釋出，Honda SENSING 全套安全配備、全景天窗、電動尾門。',
+    img:'https://images.unsplash.com/photo-1568844293986-8d0400f3a7b2?w=400&h=250&fit=crop' },
+  { id:4, brand:'Mercedes', model:'C200 Avantgarde', year:2022, price:168, mileage:31000, color:'銀色', fuel:'汽油', trans:'9速手自排', cc:'1496cc', hp:'204hp', tags:[], status:'在售',
+    desc:'小改款 C-Class，12.3 吋數位儀表、11.9 吋中控螢幕、64色氣氛燈、柏林之音音響。',
+    img:'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=400&h=250&fit=crop' },
+  { id:5, brand:'Mazda', model:'CX-5 旗艦進化型', year:2023, price:78, mileage:18000, color:'魂動紅', fuel:'汽油', trans:'6速手自排', cc:'2488cc', hp:'165hp', tags:['new','price'], status:'在售',
+    desc:'日本原裝進口、BOSE 音響、360環景、通風座椅、MRCC 全速域主動車距。',
+    img:'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&h=250&fit=crop' },
+  { id:6, brand:'Toyota', model:'RAV4 2.0 Adventure', year:2021, price:85, mileage:45000, color:'白色', fuel:'汽油', trans:'CVT 無段變速', cc:'1987cc', hp:'173hp', tags:[], status:'在售',
+    desc:'Adventure 越野外型套件、車頂行李架、TSS 2.0 主動安全、Apple CarPlay。',
+    img:'https://images.unsplash.com/photo-1549317661-bd32c8ce0ffe?w=400&h=250&fit=crop' },
+  { id:7, brand:'Tesla', model:'Model 3 Long Range', year:2023, price:145, mileage:15000, color:'白色', fuel:'純電動', trans:'單速', cc:'--', hp:'346hp (雙馬達)', tags:['hot'], status:'在售',
+    desc:'長程版雙馬達 AWD，Autopilot 輔助駕駛、續航 580km、全景玻璃車頂。',
+    img:'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400&h=250&fit=crop' },
+  { id:8, brand:'Honda', model:'Fit e:HEV', year:2023, price:42, mileage:8000, color:'黃色', fuel:'油電混合', trans:'E-CVT', cc:'1498cc', hp:'131hp', tags:['new','price'], status:'在售',
+    desc:'第四代 Fit，Honda SENSING、油電複合動力、市區油耗 26.9km/L、超大空間。',
+    img:'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=400&h=250&fit=crop' },
+  { id:9, brand:'BMW', model:'X3 xDrive20i', year:2022, price:178, mileage:28000, color:'白色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', tags:[], status:'在售',
+    desc:'X-Line 套件、全景天窗、電動尾門、無線充電、Comfort Access 免鑰匙。',
+    img:'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?w=400&h=250&fit=crop' },
+  { id:10, brand:'Mazda', model:'Mazda3 5D 旗艦型', year:2022, price:65, mileage:22000, color:'極境灰', fuel:'汽油', trans:'6速手自排', cc:'1998cc', hp:'165hp', tags:['price'], status:'在售',
+    desc:'五門掀背、BOSE 音響、HUD 抬頭顯示、全速域 MRCC、CTS 巡航模式。',
+    img:'https://images.unsplash.com/photo-1542362567-b07e54358753?w=400&h=250&fit=crop' },
+  { id:11, brand:'Mercedes', model:'GLC 300 4MATIC', year:2023, price:238, mileage:10000, color:'黑色', fuel:'汽油', trans:'9速手自排', cc:'1999cc', hp:'258hp', tags:['new'], status:'在售',
+    desc:'大改款 GLC，MBUX 系統、AR 擴增實境導航、全數位座艙、柏林之音。',
+    img:'https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=400&h=250&fit=crop' },
+  { id:12, brand:'Toyota', model:'Corolla Cross Hybrid', year:2023, price:55, mileage:16000, color:'灰色', fuel:'油電混合', trans:'E-CVT', cc:'1798cc', hp:'122hp', tags:['price'], status:'在售',
+    desc:'油電版省油首選、TSS 3.0、8 吋車載螢幕、Apple CarPlay / Android Auto。',
+    img:'https://images.unsplash.com/photo-1583267746897-2cf415887172?w=400&h=250&fit=crop' },
+];
+
+let currentBrand = 'all';
+
+// ===== 渲染車卡 =====
+function renderCars() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const maxPrice = parseInt(document.getElementById('priceRange').value);
+  document.getElementById('priceLabel').textContent = maxPrice >= 250 ? '不限' : maxPrice + ' 萬以下';
+
+  const filtered = cars.filter(c => {
+    const matchBrand = currentBrand === 'all' || c.brand === currentBrand;
+    const matchSearch = !search || c.brand.toLowerCase().includes(search) || c.model.toLowerCase().includes(search);
+    const matchPrice = c.price <= maxPrice;
+    return matchBrand && matchSearch && matchPrice && c.status === '在售';
+  });
+
+  const grid = document.getElementById('carGrid');
+  const noResult = document.getElementById('noResult');
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    noResult.style.display = 'block';
+    return;
+  }
+  noResult.style.display = 'none';
+
+  grid.innerHTML = filtered.map(c => `
+    <div class="car-card fade-in" onclick="openCar(${c.id})">
+      <div style="position:relative;">
+        <img src="${c.img}" class="car-img" alt="${c.brand} ${c.model}" onerror="this.style.background='linear-gradient(135deg,#e2e8f0,#cbd5e1)'; this.style.display='flex'; this.outerHTML='<div class=\\'car-img\\' style=\\'display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1)\\'>🚗</div>'">
+        <div style="position:absolute; top:8px; right:8px; display:flex; gap:4px;">
+          ${c.tags.includes('hot') ? '<span class="tag tag-hot">🔥 熱門</span>' : ''}
+          ${c.tags.includes('new') ? '<span class="tag tag-new">✨ 新上架</span>' : ''}
+          ${c.tags.includes('price') ? '<span class="tag tag-price">💰 超值</span>' : ''}
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <div style="font-size:12px; color:#64748b; margin-bottom:4px;">${c.brand} · ${c.year} 年 · ${(c.mileage/10000).toFixed(1)} 萬公里</div>
+        <div style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:8px;">${c.model}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:22px; font-weight:800; color:#dc2626;">${c.price} <span style="font-size:13px; font-weight:500;">萬</span></div>
+          <div style="font-size:12px; color:#94a3b8;">${c.fuel} · ${c.color}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('carCount').textContent = filtered.length;
+}
+
+function filterCars() { renderCars(); }
+function filterBrand(brand, el) {
+  currentBrand = brand;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCars();
+}
+
+// ===== 車輛詳情 =====
+function openCar(id) {
+  const c = cars.find(x => x.id === id);
+  document.getElementById('carModalContent').innerHTML = `
+    <img src="${c.img}" style="width:100%; height:300px; object-fit:cover; border-radius:16px 16px 0 0;" onerror="this.outerHTML='<div style=\\'height:300px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border-radius:16px 16px 0 0;font-size:80px\\'>🚗</div>'">
+    <div style="padding:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+        <div>
+          <div style="font-size:13px; color:#64748b;">${c.brand} · ${c.year} 年式</div>
+          <h2 style="font-size:22px; font-weight:700; margin:4px 0;">${c.model}</h2>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:28px; font-weight:800; color:#dc2626;">${c.price} <span style="font-size:14px;">萬</span></div>
+        </div>
+      </div>
+      <p style="color:#475569; font-size:14px; line-height:1.7; margin-bottom:20px;">${c.desc}</p>
+      <h3 style="font-size:14px; font-weight:600; margin-bottom:8px; color:#1e293b;">車輛規格</h3>
+      <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; margin-bottom:20px;">
+        <div class="spec-row"><div class="spec-label">年份</div><div class="spec-value">${c.year} 年</div></div>
+        <div class="spec-row"><div class="spec-label">里程</div><div class="spec-value">${c.mileage.toLocaleString()} 公里</div></div>
+        <div class="spec-row"><div class="spec-label">顏色</div><div class="spec-value">${c.color}</div></div>
+        <div class="spec-row"><div class="spec-label">燃料</div><div class="spec-value">${c.fuel}</div></div>
+        <div class="spec-row"><div class="spec-label">排氣量</div><div class="spec-value">${c.cc}</div></div>
+        <div class="spec-row"><div class="spec-label">馬力</div><div class="spec-value">${c.hp}</div></div>
+        <div class="spec-row"><div class="spec-label">變速箱</div><div class="spec-value">${c.trans}</div></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="alert('📞 Demo：實際版本會顯示聯絡電話或 LINE')" style="flex:1; padding:14px; background:#1e293b; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:15px;">立即聯繫賞車</button>
+        <button onclick="alert('❤️ 已加入收藏！')" style="padding:14px 20px; background:white; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:18px;">❤️</button>
+        <button onclick="closeCar()" style="padding:14px 20px; background:white; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:14px; color:#64748b;">關閉</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('carModal').classList.add('show');
+}
+function closeCar() { document.getElementById('carModal').classList.remove('show'); }
+
+// ===== 前後台切換 =====
+function switchView(view) {
+  document.querySelectorAll('.admin-tab').forEach(t => { t.classList.remove('active'); t.style.opacity = '0.6'; });
+  event.target.classList.add('active');
+  event.target.style.opacity = '0.9';
+  document.getElementById('frontView').style.display = view === 'front' ? 'block' : 'none';
+  document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
+  if (view === 'admin') renderAdmin();
+}
+
+// ===== 後台管理 =====
+function renderAdmin() {
+  document.getElementById('statTotal').textContent = cars.filter(c => c.status === '在售').length;
+  document.getElementById('adminTable').innerHTML = cars.map(c => `
+    <tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:12px 16px;">
+        <div style="width:60px; height:40px; border-radius:6px; overflow:hidden; background:#e2e8f0;">
+          <img src="${c.img}" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='🚗'">
+        </div>
+      </td>
+      <td style="padding:12px 16px; font-weight:600; font-size:14px;">${c.brand} ${c.model}</td>
+      <td style="padding:12px 16px; font-size:14px;">${c.year}</td>
+      <td style="padding:12px 16px; font-weight:600; color:#dc2626; font-size:14px;">${c.price} 萬</td>
+      <td style="padding:12px 16px;">
+        <span style="padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; ${c.status === '在售' ? 'background:#f0fdf4; color:#16a34a;' : 'background:#fef2f2; color:#dc2626;'}">${c.status}</span>
+      </td>
+      <td style="padding:12px 16px;">
+        <button onclick="alert('✏️ 編輯 ${c.brand} ${c.model} 的資料')" style="padding:4px 12px; border:1px solid #e2e8f0; background:white; border-radius:6px; cursor:pointer; font-size:12px; margin-right:4px;">編輯</button>
+        <button onclick="toggleStatus(${c.id})" style="padding:4px 12px; border:1px solid #e2e8f0; background:white; border-radius:6px; cursor:pointer; font-size:12px;">${c.status === '在售' ? '下架' : '上架'}</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function toggleStatus(id) {
+  const c = cars.find(x => x.id === id);
+  c.status = c.status === '在售' ? '已下架' : '在售';
+  renderAdmin();
+  renderCars();
+}
+
+function openAddCar() { document.getElementById('addCarModal').classList.add('show'); }
+function closeAddCar() { document.getElementById('addCarModal').classList.remove('show'); }
+function addCar() {
+  const brand = document.getElementById('addBrand').value;
+  const model = document.getElementById('addModel').value;
+  const year = document.getElementById('addYear').value;
+  const price = document.getElementById('addPrice').value;
+  if (!model || !price) { alert('請填寫車型和售價'); return; }
+  cars.push({
+    id: cars.length + 1, brand, model, year: parseInt(year), price: parseInt(price),
+    mileage: parseInt(document.getElementById('addMileage').value) || 0,
+    color: document.getElementById('addColor').value || '未填',
+    fuel: '汽油', trans: '自排', cc: '--', hp: '--', tags: ['new'], status: '在售',
+    desc: document.getElementById('addDesc').value || '',
+    img: ''
+  });
+  closeAddCar();
+  renderAdmin();
+  renderCars();
+  alert(`✅ 已上架：${brand} ${model}`);
+}
+
+// Modal 點擊背景關閉
+document.getElementById('carModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCar(); });
+document.getElementById('addCarModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAddCar(); });
+
+// 初始渲染
+renderCars();
+</script>
+</body>
+</html>
