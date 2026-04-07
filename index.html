@@ -10,7 +10,9 @@
     body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #f8fafc; margin: 0; }
     .car-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: all 0.25s; cursor: pointer; }
     .car-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
-    .car-img { width: 100%; height: 200px; object-fit: cover; background: #e2e8f0; }
+    .car-img-box { width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+    .car-img-box .car-brand-label { position: absolute; top: 12px; left: 12px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.9); letter-spacing: 2px; text-transform: uppercase; }
+    .car-img-box .car-type-label { position: absolute; bottom: 10px; right: 12px; font-size: 11px; color: rgba(255,255,255,0.6); }
     .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .tag-hot { background: #fef2f2; color: #dc2626; }
     .tag-new { background: #f0fdf4; color: #16a34a; }
@@ -209,44 +211,88 @@
 </div>
 
 <script>
+// ===== 品牌配色與車型 SVG =====
+const brandColors = {
+  Toyota:   { bg: 'linear-gradient(135deg, #1a1a1a 0%, #cc0000 100%)', accent: '#cc0000' },
+  Honda:    { bg: 'linear-gradient(135deg, #1a1a1a 0%, #0033a0 100%)', accent: '#0033a0' },
+  BMW:      { bg: 'linear-gradient(135deg, #1a1a1a 0%, #0066b1 100%)', accent: '#0066b1' },
+  Mercedes: { bg: 'linear-gradient(135deg, #1a1a1a 0%, #333333 100%)', accent: '#666666' },
+  Mazda:    { bg: 'linear-gradient(135deg, #1a1a1a 0%, #910a2d 100%)', accent: '#910a2d' },
+  Tesla:    { bg: 'linear-gradient(135deg, #1a1a1a 0%, #c80815 100%)', accent: '#c80815' },
+};
+
+// SVG 車型剪影
+const carSVG = {
+  sedan: `<svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:160px; opacity:0.25;">
+    <path d="M20 55 Q20 45, 35 42 L55 25 Q60 20, 70 18 L130 18 Q140 20, 145 25 L165 42 Q180 45, 180 55 L180 58 Q180 62, 176 62 L168 62 Q165 50, 155 50 Q145 50, 142 62 L58 62 Q55 50, 45 50 Q35 50, 32 62 L24 62 Q20 62, 20 58 Z" fill="white"/>
+    <circle cx="45" cy="58" r="10" fill="white" opacity="0.4"/><circle cx="45" cy="58" r="6" fill="white" opacity="0.2"/>
+    <circle cx="155" cy="58" r="10" fill="white" opacity="0.4"/><circle cx="155" cy="58" r="6" fill="white" opacity="0.2"/>
+    <path d="M62 24 L72 18 L128 18 L138 24" stroke="white" stroke-width="0.5" opacity="0.3"/>
+  </svg>`,
+  suv: `<svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:160px; opacity:0.25;">
+    <path d="M18 52 Q18 42, 30 38 L48 18 Q52 14, 60 13 L140 13 Q148 14, 152 18 L170 38 Q182 42, 182 52 L182 56 Q182 60, 178 60 L170 60 Q167 46, 157 46 Q147 46, 144 60 L56 60 Q53 46, 43 46 Q33 46, 30 60 L22 60 Q18 60, 18 56 Z" fill="white"/>
+    <circle cx="43" cy="56" r="12" fill="white" opacity="0.4"/><circle cx="43" cy="56" r="7" fill="white" opacity="0.2"/>
+    <circle cx="157" cy="56" r="12" fill="white" opacity="0.4"/><circle cx="157" cy="56" r="7" fill="white" opacity="0.2"/>
+    <path d="M55 20 L65 13 L135 13 L145 20" stroke="white" stroke-width="0.5" opacity="0.3"/>
+  </svg>`,
+  hatchback: `<svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:140px; opacity:0.25;">
+    <path d="M25 55 Q25 45, 38 42 L58 22 Q62 18, 70 17 L125 17 Q138 18, 145 28 L158 42 Q170 45, 170 55 L170 58 Q170 62, 166 62 L160 62 Q157 50, 148 50 Q139 50, 136 62 L54 62 Q51 50, 42 50 Q33 50, 30 62 L28 62 Q25 62, 25 58 Z" fill="white"/>
+    <circle cx="42" cy="58" r="10" fill="white" opacity="0.4"/><circle cx="42" cy="58" r="6" fill="white" opacity="0.2"/>
+    <circle cx="148" cy="58" r="10" fill="white" opacity="0.4"/><circle cx="148" cy="58" r="6" fill="white" opacity="0.2"/>
+  </svg>`,
+  electric: `<svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:160px; opacity:0.25;">
+    <path d="M15 52 Q15 42, 30 40 L52 22 Q56 18, 65 17 L135 17 Q144 18, 148 22 L170 40 Q185 42, 185 52 L185 56 Q185 60, 181 60 L173 60 Q170 47, 160 47 Q150 47, 147 60 L53 60 Q50 47, 40 47 Q30 47, 27 60 L19 60 Q15 60, 15 56 Z" fill="white"/>
+    <circle cx="40" cy="56" r="11" fill="white" opacity="0.4"/><circle cx="40" cy="56" r="7" fill="white" opacity="0.2"/>
+    <circle cx="160" cy="56" r="11" fill="white" opacity="0.4"/><circle cx="160" cy="56" r="7" fill="white" opacity="0.2"/>
+    <text x="100" y="42" text-anchor="middle" fill="white" font-size="8" opacity="0.3" font-family="sans-serif">⚡</text>
+  </svg>`
+};
+
+function getCarImgHTML(c, height) {
+  const h = height || 200;
+  const colors = brandColors[c.brand] || brandColors.Toyota;
+  const svg = carSVG[c.bodyType] || carSVG.sedan;
+  return `<div class="car-img-box" style="height:${h}px; background:${colors.bg}; flex-direction:column; gap:4px;">
+    <div class="car-brand-label">${c.brand}</div>
+    ${svg}
+    <div style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:600; margin-top:-4px;">${c.model}</div>
+    <div class="car-type-label">📷 實際照片由車主提供</div>
+  </div>`;
+}
+
+function getCarThumbHTML(c) {
+  const colors = brandColors[c.brand] || brandColors.Toyota;
+  return `<div style="width:60px; height:40px; border-radius:6px; background:${colors.bg}; display:flex; align-items:center; justify-content:center;">
+    <span style="color:white; font-size:9px; font-weight:700; letter-spacing:1px;">${c.brand.substring(0,3).toUpperCase()}</span>
+  </div>`;
+}
+
 // ===== 車輛資料 =====
 const cars = [
-  { id:1, brand:'Toyota', model:'Camry 2.5 Hybrid', year:2022, price:89, mileage:25000, color:'白色', fuel:'油電混合', trans:'CVT 無段變速', cc:'2487cc', hp:'218hp', tags:['hot'], status:'在售',
-    desc:'原廠保固中，一手車，全車原漆，定期原廠保養，配備 Toyota Safety Sense 主動安全系統。',
-    img:'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=250&fit=crop' },
-  { id:2, brand:'BMW', model:'320i M Sport', year:2021, price:138, mileage:42000, color:'黑色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', tags:['hot'], status:'在售',
-    desc:'M Sport 套件、全景天窗、HUD 抬頭顯示、harman/kardon 音響、無線 CarPlay。',
-    img:'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=250&fit=crop' },
-  { id:3, brand:'Honda', model:'CR-V 1.5 VTi-S', year:2023, price:95, mileage:12000, color:'深藍色', fuel:'汽油', trans:'CVT 無段變速', cc:'1498cc', hp:'193hp', tags:['new'], status:'在售',
-    desc:'準新車釋出，Honda SENSING 全套安全配備、全景天窗、電動尾門。',
-    img:'https://images.unsplash.com/photo-1568844293986-8d0400f3a7b2?w=400&h=250&fit=crop' },
-  { id:4, brand:'Mercedes', model:'C200 Avantgarde', year:2022, price:168, mileage:31000, color:'銀色', fuel:'汽油', trans:'9速手自排', cc:'1496cc', hp:'204hp', tags:[], status:'在售',
-    desc:'小改款 C-Class，12.3 吋數位儀表、11.9 吋中控螢幕、64色氣氛燈、柏林之音音響。',
-    img:'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=400&h=250&fit=crop' },
-  { id:5, brand:'Mazda', model:'CX-5 旗艦進化型', year:2023, price:78, mileage:18000, color:'魂動紅', fuel:'汽油', trans:'6速手自排', cc:'2488cc', hp:'165hp', tags:['new','price'], status:'在售',
-    desc:'日本原裝進口、BOSE 音響、360環景、通風座椅、MRCC 全速域主動車距。',
-    img:'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&h=250&fit=crop' },
-  { id:6, brand:'Toyota', model:'RAV4 2.0 Adventure', year:2021, price:85, mileage:45000, color:'白色', fuel:'汽油', trans:'CVT 無段變速', cc:'1987cc', hp:'173hp', tags:[], status:'在售',
-    desc:'Adventure 越野外型套件、車頂行李架、TSS 2.0 主動安全、Apple CarPlay。',
-    img:'https://images.unsplash.com/photo-1549317661-bd32c8ce0ffe?w=400&h=250&fit=crop' },
-  { id:7, brand:'Tesla', model:'Model 3 Long Range', year:2023, price:145, mileage:15000, color:'白色', fuel:'純電動', trans:'單速', cc:'--', hp:'346hp (雙馬達)', tags:['hot'], status:'在售',
-    desc:'長程版雙馬達 AWD，Autopilot 輔助駕駛、續航 580km、全景玻璃車頂。',
-    img:'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400&h=250&fit=crop' },
-  { id:8, brand:'Honda', model:'Fit e:HEV', year:2023, price:42, mileage:8000, color:'黃色', fuel:'油電混合', trans:'E-CVT', cc:'1498cc', hp:'131hp', tags:['new','price'], status:'在售',
-    desc:'第四代 Fit，Honda SENSING、油電複合動力、市區油耗 26.9km/L、超大空間。',
-    img:'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=400&h=250&fit=crop' },
-  { id:9, brand:'BMW', model:'X3 xDrive20i', year:2022, price:178, mileage:28000, color:'白色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', tags:[], status:'在售',
-    desc:'X-Line 套件、全景天窗、電動尾門、無線充電、Comfort Access 免鑰匙。',
-    img:'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?w=400&h=250&fit=crop' },
-  { id:10, brand:'Mazda', model:'Mazda3 5D 旗艦型', year:2022, price:65, mileage:22000, color:'極境灰', fuel:'汽油', trans:'6速手自排', cc:'1998cc', hp:'165hp', tags:['price'], status:'在售',
-    desc:'五門掀背、BOSE 音響、HUD 抬頭顯示、全速域 MRCC、CTS 巡航模式。',
-    img:'https://images.unsplash.com/photo-1542362567-b07e54358753?w=400&h=250&fit=crop' },
-  { id:11, brand:'Mercedes', model:'GLC 300 4MATIC', year:2023, price:238, mileage:10000, color:'黑色', fuel:'汽油', trans:'9速手自排', cc:'1999cc', hp:'258hp', tags:['new'], status:'在售',
-    desc:'大改款 GLC，MBUX 系統、AR 擴增實境導航、全數位座艙、柏林之音。',
-    img:'https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=400&h=250&fit=crop' },
-  { id:12, brand:'Toyota', model:'Corolla Cross Hybrid', year:2023, price:55, mileage:16000, color:'灰色', fuel:'油電混合', trans:'E-CVT', cc:'1798cc', hp:'122hp', tags:['price'], status:'在售',
-    desc:'油電版省油首選、TSS 3.0、8 吋車載螢幕、Apple CarPlay / Android Auto。',
-    img:'https://images.unsplash.com/photo-1583267746897-2cf415887172?w=400&h=250&fit=crop' },
+  { id:1, brand:'Toyota', model:'Camry 2.5 Hybrid', year:2022, price:89, mileage:25000, color:'白色', fuel:'油電混合', trans:'CVT 無段變速', cc:'2487cc', hp:'218hp', bodyType:'sedan', tags:['hot'], status:'在售',
+    desc:'原廠保固中，一手車，全車原漆，定期原廠保養，配備 Toyota Safety Sense 主動安全系統。' },
+  { id:2, brand:'BMW', model:'320i M Sport', year:2021, price:138, mileage:42000, color:'黑色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', bodyType:'sedan', tags:['hot'], status:'在售',
+    desc:'M Sport 套件、全景天窗、HUD 抬頭顯示、harman/kardon 音響、無線 CarPlay。' },
+  { id:3, brand:'Honda', model:'CR-V 1.5 VTi-S', year:2023, price:95, mileage:12000, color:'深藍色', fuel:'汽油', trans:'CVT 無段變速', cc:'1498cc', hp:'193hp', bodyType:'suv', tags:['new'], status:'在售',
+    desc:'準新車釋出，Honda SENSING 全套安全配備、全景天窗、電動尾門。' },
+  { id:4, brand:'Mercedes', model:'C200 Avantgarde', year:2022, price:168, mileage:31000, color:'銀色', fuel:'汽油', trans:'9速手自排', cc:'1496cc', hp:'204hp', bodyType:'sedan', tags:[], status:'在售',
+    desc:'小改款 C-Class，12.3 吋數位儀表、11.9 吋中控螢幕、64色氣氛燈、柏林之音音響。' },
+  { id:5, brand:'Mazda', model:'CX-5 旗艦進化型', year:2023, price:78, mileage:18000, color:'魂動紅', fuel:'汽油', trans:'6速手自排', cc:'2488cc', hp:'165hp', bodyType:'suv', tags:['new','price'], status:'在售',
+    desc:'日本原裝進口、BOSE 音響、360環景、通風座椅、MRCC 全速域主動車距。' },
+  { id:6, brand:'Toyota', model:'RAV4 2.0 Adventure', year:2021, price:85, mileage:45000, color:'白色', fuel:'汽油', trans:'CVT 無段變速', cc:'1987cc', hp:'173hp', bodyType:'suv', tags:[], status:'在售',
+    desc:'Adventure 越野外型套件、車頂行李架、TSS 2.0 主動安全、Apple CarPlay。' },
+  { id:7, brand:'Tesla', model:'Model 3 Long Range', year:2023, price:145, mileage:15000, color:'白色', fuel:'純電動', trans:'單速', cc:'--', hp:'346hp (雙馬達)', bodyType:'electric', tags:['hot'], status:'在售',
+    desc:'長程版雙馬達 AWD，Autopilot 輔助駕駛、續航 580km、全景玻璃車頂。' },
+  { id:8, brand:'Honda', model:'Fit e:HEV', year:2023, price:42, mileage:8000, color:'黃色', fuel:'油電混合', trans:'E-CVT', cc:'1498cc', hp:'131hp', bodyType:'hatchback', tags:['new','price'], status:'在售',
+    desc:'第四代 Fit，Honda SENSING、油電複合動力、市區油耗 26.9km/L、超大空間。' },
+  { id:9, brand:'BMW', model:'X3 xDrive20i', year:2022, price:178, mileage:28000, color:'白色', fuel:'汽油', trans:'8速手自排', cc:'1998cc', hp:'184hp', bodyType:'suv', tags:[], status:'在售',
+    desc:'X-Line 套件、全景天窗、電動尾門、無線充電、Comfort Access 免鑰匙。' },
+  { id:10, brand:'Mazda', model:'Mazda3 5D 旗艦型', year:2022, price:65, mileage:22000, color:'極境灰', fuel:'汽油', trans:'6速手自排', cc:'1998cc', hp:'165hp', bodyType:'hatchback', tags:['price'], status:'在售',
+    desc:'五門掀背、BOSE 音響、HUD 抬頭顯示、全速域 MRCC、CTS 巡航模式。' },
+  { id:11, brand:'Mercedes', model:'GLC 300 4MATIC', year:2023, price:238, mileage:10000, color:'黑色', fuel:'汽油', trans:'9速手自排', cc:'1999cc', hp:'258hp', bodyType:'suv', tags:['new'], status:'在售',
+    desc:'大改款 GLC，MBUX 系統、AR 擴增實境導航、全數位座艙、柏林之音。' },
+  { id:12, brand:'Toyota', model:'Corolla Cross Hybrid', year:2023, price:55, mileage:16000, color:'灰色', fuel:'油電混合', trans:'E-CVT', cc:'1798cc', hp:'122hp', bodyType:'suv', tags:['price'], status:'在售',
+    desc:'油電版省油首選、TSS 3.0、8 吋車載螢幕、Apple CarPlay / Android Auto。' },
 ];
 
 let currentBrand = 'all';
@@ -277,7 +323,7 @@ function renderCars() {
   grid.innerHTML = filtered.map(c => `
     <div class="car-card fade-in" onclick="openCar(${c.id})">
       <div style="position:relative;">
-        <img src="${c.img}" class="car-img" alt="${c.brand} ${c.model}" onerror="this.style.background='linear-gradient(135deg,#e2e8f0,#cbd5e1)'; this.style.display='flex'; this.outerHTML='<div class=\\'car-img\\' style=\\'display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1)\\'>🚗</div>'">
+        ${getCarImgHTML(c)}
         <div style="position:absolute; top:8px; right:8px; display:flex; gap:4px;">
           ${c.tags.includes('hot') ? '<span class="tag tag-hot">🔥 熱門</span>' : ''}
           ${c.tags.includes('new') ? '<span class="tag tag-new">✨ 新上架</span>' : ''}
@@ -310,7 +356,7 @@ function filterBrand(brand, el) {
 function openCar(id) {
   const c = cars.find(x => x.id === id);
   document.getElementById('carModalContent').innerHTML = `
-    <img src="${c.img}" style="width:100%; height:300px; object-fit:cover; border-radius:16px 16px 0 0;" onerror="this.outerHTML='<div style=\\'height:300px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border-radius:16px 16px 0 0;font-size:80px\\'>🚗</div>'">
+    ${getCarImgHTML(c, 300).replace('border-radius:0', '').replace('class="car-img-box"', 'class="car-img-box" style="border-radius:16px 16px 0 0; height:300px; background:' + (brandColors[c.brand]||brandColors.Toyota).bg + '; flex-direction:column; gap:4px;"')}
     <div style="padding:24px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
         <div>
@@ -358,11 +404,7 @@ function renderAdmin() {
   document.getElementById('statTotal').textContent = cars.filter(c => c.status === '在售').length;
   document.getElementById('adminTable').innerHTML = cars.map(c => `
     <tr style="border-bottom:1px solid #f1f5f9;">
-      <td style="padding:12px 16px;">
-        <div style="width:60px; height:40px; border-radius:6px; overflow:hidden; background:#e2e8f0;">
-          <img src="${c.img}" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='🚗'">
-        </div>
-      </td>
+      <td style="padding:12px 16px;">${getCarThumbHTML(c)}</td>
       <td style="padding:12px 16px; font-weight:600; font-size:14px;">${c.brand} ${c.model}</td>
       <td style="padding:12px 16px; font-size:14px;">${c.year}</td>
       <td style="padding:12px 16px; font-weight:600; color:#dc2626; font-size:14px;">${c.price} 萬</td>
@@ -396,9 +438,8 @@ function addCar() {
     id: cars.length + 1, brand, model, year: parseInt(year), price: parseInt(price),
     mileage: parseInt(document.getElementById('addMileage').value) || 0,
     color: document.getElementById('addColor').value || '未填',
-    fuel: '汽油', trans: '自排', cc: '--', hp: '--', tags: ['new'], status: '在售',
-    desc: document.getElementById('addDesc').value || '',
-    img: ''
+    fuel: '汽油', trans: '自排', cc: '--', hp: '--', bodyType: 'sedan', tags: ['new'], status: '在售',
+    desc: document.getElementById('addDesc').value || ''
   });
   closeAddCar();
   renderAdmin();
